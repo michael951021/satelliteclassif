@@ -156,8 +156,8 @@ for i, num in enumerate(test_acc_knn):
         test_max[1] = i
 test_max[1] = neighbours_range[int(test_max[1])]
 
-best_k_train = train_max[1]
-best_k_test = test_max[1]
+best_k_train = int(train_max[1])
+best_k_test = int(test_max[1])
 print('k-NN on pixel values: neighbor size %i maximises training accuracy' %
       best_k_train)
 print('k-NN on pixel values: neighbor size %i maximises test accuracy' %
@@ -165,19 +165,34 @@ print('k-NN on pixel values: neighbor size %i maximises test accuracy' %
 # TODO: Load, fit and predict on testing data with best_k_test. knn_best_predict should be an
 # array of predicted labels
 
-knn_best_predict = None
+knn_best_predict = np.zeros(test_x_reshape.shape[0])
+neigh = neighbors.KNeighborsClassifier(n_neighbors=best_k_test)
+neigh.fit(test_x_reshape, test_y)
+
+for num, val in enumerate(test_x_reshape):
+    reshaped_row = np.reshape(val, (1, -1))
+    predicted_label = neigh.predict(reshaped_row)
+    knn_best_predict[num] = predicted_label[0]
+
 # TODO: Finding wrongly classified samples for each class by comparing knn_best_predict and train_y
 for i in range(4):
-    pass
-    # TODO: Find a correct label for label=i+1
+    # Find correct label for label=i+1
     right_indx = None
+    for num, val in enumerate(knn_best_predict):
+        if val == i + 1:
+            if test_y[num] == i + 1:
+                right_indx = num
     # TODO: Find a incorrect label for label=i+1
     wrong_indx = None
+    for num, val in enumerate(knn_best_predict):
+        if test_y[num] == i + 1:
+            if val != i + 1:
+                wrong_indx = num
     # TODO: Load in data for right and wrong indices
-    rgb_data_right = None
-    nir_data_right = None
-    rgb_data_wrong = None
-    nir_data_wrong = None
+    rgb_data_right = test_x_raw[:, :, 0:3, right_indx]
+    nir_data_right = test_x_raw[:, :, 3, right_indx]
+    rgb_data_wrong = test_x_raw[:, :, 0:3, wrong_indx]
+    nir_data_wrong = test_x_raw[:, :, 3, wrong_indx]
     # Save data into images
     sample_right = Image.fromarray(rgb_data_right.astype(np.uint8))
     sample_right_nir = Image.fromarray(nir_data_right.astype(np.uint8))
@@ -196,8 +211,23 @@ train_acc_svm = np.zeros(C_list.shape)
 test_acc_svm = np.zeros(C_list.shape)
 start = time.time()
 for i, c in enumerate(C_list):
-    # TODO: Train and fit SVM with gamma=c/10 and populate acc arrays
-    pass
+    svm_fit = svm.SVC(C=c, gamma=c / 10)
+    svm_fit.fit(train_x_reshape, train_y)
+    for num, val in enumerate(train_x_reshape):
+        reshaped_row = np.reshape(val, (1, -1))
+        predicted_label = svm_fit.predict(reshaped_row)
+        expected_label = train_y[num]
+        if predicted_label == expected_label:
+            train_acc_svm[i] += 1
+    for num, val in enumerate(test_x_reshape):
+        reshaped_row = np.reshape(val, (1, -1))
+        predicted_label = svm_fit.predict(reshaped_row)
+        expected_label = test_y[num]
+        if predicted_label == expected_label:
+            test_acc_svm[i] += 1
+
+train_acc_svm = train_acc_svm / (train_x_reshape.shape[0])
+test_acc_svm = test_acc_svm / (test_x_reshape.shape[0])
 print('SVM on pixel values: done in %.2f secs' % (time.time() - start))
 plt.figure(figsize=(12, 12))
 plt.plot(C_list, train_acc_svm, label='Training Accuracy')
